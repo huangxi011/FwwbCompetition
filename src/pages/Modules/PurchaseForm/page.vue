@@ -1,5 +1,5 @@
 <template>
-    <div>
+    <div id="Purchase">
         <div class="paper">
             <div class="blankPage"></div>
             <p class="headLine">采购入库申请表</p>
@@ -8,7 +8,7 @@
                 <tr>
                     <td class="cellFirst">工作间</td>
                     <td class="cellSecond">
-                        <i-input  v-if="io.fieldAccess.workCell === 'w' && io.isMyStep" v-model="io.data.WorkCell"/>
+                        <i-input  v-if="io.fieldAccess.WorkCell === 'w' && io.isMyStep" v-model="io.data.WorkCell"/>
                         <p v-else>{{io.data.WorkCell}}</p>
                     </td>
                 </tr>
@@ -50,12 +50,19 @@
                 <tr>
                     <td class="cellFirst" >物品照片</td>
                     <td class="cellSecond">
-                        <i-upload  v-if="formData == null && files.length == 0 &&io.fieldAccess.Photo === 'w' && io.isMyStep" action="//jsonplaceholder.typicode.com/posts/" :before-upload="handleUpload">
-                            <i-button icon="ios-cloud-upload-outline" type="primary">上传照片</i-button>
-                        </i-upload>
+                        <Upload
+                            v-if="formData == null && files.length == 0 &&io.fieldAccess.Photo === 'w' && io.isMyStep"
+                            type="drag"
+                            action="//jsonplaceholder.typicode.com/posts/"
+                            :before-upload="handleUpload">
+                            <div style="padding: 20px 0">
+                                <Icon type="ios-cloud-upload" size="52" style="color: #3399ff"></Icon>
+                                <p>Click or drag photo here to upload</p>
+                            </div>
+                        </Upload>
                         <div v-if="formData !== null">
                             <i-row>
-                                <Button type="text" style="text-align: left;width: 300px;overflow: hidden;white-space: nowrap;text-overflow: ellipsis;">{{formData.name}}</Button>
+                                <Button type="text" style="text-align: left;width: 200px;overflow: hidden;white-space: nowrap;text-overflow: ellipsis;">{{formData.name}}</Button>
                                 <Button type="text" @click="uploadFile" :loading="loadingStatus">上传</Button>
                                 <Button type="text" @click="removeFormData"><Icon type="ios-close" /></Button>
                             </i-row>
@@ -69,7 +76,8 @@
                                 </i-row>
                             </template>
                         </div>
-                        <div v-else-if="io.fieldAccess.Description === 'r' || !io.isMyStep">无附件</div>
+                        <div v-else-if="io.fieldAccess.Description === 'r' || !io.isMyStep">无照片</div>
+                        <img :src="photo" v-show="photo"/>
                     </td>
                 </tr>
                 <tr v-show="io.fieldAccess.SOpinion">
@@ -123,16 +131,44 @@
                 <i-button  v-show="io.currentStep==='填写申请表' && io.isMyStep" style="width: 200px;margin: 18px auto;" type="primary" @click="submit">提交申请</i-button>
             </i-row>
         </div>
+        <div class="paper" v-if="io.timelines.length > 0">
+            <p class="smallhang"/>
+            <p class="headline">流程执行步骤</p>
+            <i-timeline style="padding: 20px;">
+                <TimelineItem v-for="(item,index) in io.timelines" :key="index">
+                    <i-row class="time">
+                        <i-col>
+                            <p>{{item.Key}}</p>
+                        </i-col>
+                    </i-row>
+                    <i-row v-for="(item,index) in item.steps" :key="index" class="content">
+                        <Alert v-if="item.State !== 0 && item.State !== 1" show-icon :type="icons[item.State]">{{item.StepName}}于{{item.CreatedOn}}{{item.Time}}由{{item.ExecutorName}}{{stepInfo[item.State]}}</Alert>
+                        <Alert v-else show-icon>{{item.StepName}}于{{item.CreatedOn}}{{item.Time}}由{{item.ExecutorName}}{{stepInfo[item.State]}}</Alert>
+                    </i-row>
+                </TimelineItem>
+            </i-timeline>
+        </div>
     </div>
 </template>
 
 <script>
+const enums = require("@/config/enums");
 const axios = require("axios");
 const table = "ActivityApplication";
 const usage = "附件";
 export default {
     data () {
         return {
+            photo: "",
+            icons: [
+                "",
+                "",
+                "success",
+                "success",
+                "error",
+                "warning"
+            ],
+            stepInfo: enums.stepInfo,
             stepId: "",
             instanceId: "",
             loadingStatus: false,
@@ -150,9 +186,6 @@ export default {
                     Photo: 'w'
                 },
                 data: {
-                    Owner: '',
-                    BillNo: '',
-                    WorkCell: ''
                 },
                 submitBtns: [],
                 shouldUpload: [],
@@ -168,6 +201,12 @@ export default {
     methods: {
         handleUpload (file) {
             this.formData = file;
+            var reader = new FileReader();
+            var that = this;
+            reader.readAsDataURL(file);
+            reader.onload = function (e) {
+                that.photo = this.result;
+            }
             return false;
         },
         uploadFile () {
@@ -200,6 +239,7 @@ export default {
         },
         removeFormData () {
             this.formData = null;
+            this.photo = "";
         },
         getFiles () {
             axios.post("/api/cms/GetAttachments", {id: this.instanceId, relateTable: table, usage: usage}, msg => {
@@ -259,6 +299,17 @@ export default {
 </script>
 
 <style lang="less">
+#Purchase
+{
+    img {
+        max-width: 100%;
+        height: auto;
+        display: block;
+        margin: 0 auto;
+    }
+    input {
+        text-align: center;
+    }
     .wei_zhi_ju_zuo {
         text-align: left;
     }
@@ -284,7 +335,7 @@ export default {
     }
     .paper {
     width: 800px;
-    height: 1700px;
+    height: 1300px;
     margin: 18px auto;
     background-color: white;
     border: solid 1px rgb(198, 198, 198);
@@ -337,4 +388,11 @@ export default {
     .shu_zi_jian_ju{
         letter-spacing: 2px;
     }
+    .headline {
+        margin-top: 9px;
+        text-align: center;
+        font-size: 24px;
+        font-family: '';
+    }
+}
 </style>
